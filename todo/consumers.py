@@ -1,104 +1,62 @@
-import json
-from channels.generic.websocket import AsyncWebsocketConsumer
+from django.test import TestCase
+from django.urls import reverse
+from rest_framework import status
+from rest_framework.test import APIClient
+from django.contrib.auth.models import User
 from .models import Task
-from .serializers import TaskSerializer
-from .auth_backend import TokenAuthBackend
-from asgiref.sync import sync_to_async
 
-class TodoConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        # Extract authentication token from query parameters
-        token = self.scope['query_string'].decode().split('=')[1]
-        
-        # Authenticate user based on token
-        user = await TokenAuthBackend().authenticate(request=None, token=token)
-        
-        # Check if user is authenticated
-        if user is not None and user.is_authenticated:
-            # Accept the WebSocket connection
-            await self.accept()
-            print(user.username)
-            # Add the connection to a group or perform any other actions
-            await self.channel_layer.group_add(
-                str(user.username),  # Convert username to string
-                self.channel_name
-            )
-        else:
-            # Reject the connection
-            await self.close()
+class TodoViewsTestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username='testuser', password='password123')
 
-    async def disconnect(self, close_code):
-        if hasattr(self.scope['user'], 'username') and self.scope['user'].username:
-            await self.channel_layer.group_discard(
-                self.scope['user'].username,
-                self.channel_name
-            )
+    def test_task_create(self):
+        url = reverse('todo:task-create')  # Updated URL pattern name
+        self.client.force_login(self.user)
 
-    async def receive(self, text_data):
-        token = self.scope['query_string'].decode().split('=')[1]
-        
-        # Authenticate user based on token
-        user = await TokenAuthBackend().authenticate(request=None, token=token)
- 
-        if user:
-            text_data_json = json.loads(text_data)
-            action = text_data_json['action']
-            task_data = text_data_json.get('task')
-            if action == 'sync':
-                tasks = await sync_to_async(Task.objects.filter)(created_by=user.id)
-                serializer = TaskSerializer(tasks, many=True)
-                serializer_data = await sync_to_async(serializer.data.__getitem__)(slice(None))
-                await self.send(text_data=json.dumps({
-                    'action': 'sync',
-                    'tasks': serializer_data
-                }))
+        data = {
+            'title': 'Test Task',
+            'completed': False
+        }
 
-            elif action == 'add':
-                if task_data:
-                    task_data['created_by'] = user.id
-                    serializer = TaskSerializer(data=task_data)
-                    if serializer.is_valid():
-                        serializer.save()
-                        await self.channel_layer.group_send(
-                            str(self.scope['user'].username),
-                            {
-                                'type': 'send_todo_update',
-                                'action': 'add',
-                                'task': serializer.data
-                            }
-                        )
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(Task.objects.filter(title='Test Task').exists())
 
-            elif action == 'update':
-                if task_data:
-                    task = await sync_to_async(Task.objects.get)(id=task_data['id'])
-                    serializer = TaskSerializer(instance=task, data=task_data)
-                    if serializer.is_valid():
-                        serializer.save()
-                        await self.channel_layer.group_send(
-                            str(self.scope['user'].username),
-                            {
-                                'type': 'send_todo_update',
-                                'action': 'update',
-                                'task': serializer.data
-                            }
-                        )
+    def test_task_list(self):
+        url = reverse('todo:task-list')  # Updated URL pattern name
+        self.client.force_login(self.user)
 
-            elif action == 'delete':
-                task_id = text_data_json.get('task_id')
-                if task_id:
-                    task = await sync_to_async(Task.objects.get)(id=task_id)
-                    task.delete()
-                    await self.channel_layer.group_send(
-                        str(self.scope['user'].username),
-                        {
-                            'type': 'send_todo_update',
-                            'action': 'delete',
-                            'task_id': task_id
-                        }
-                    )
-        else:
-            # User is not authenticated, handle accordingly
-            print("User is not authenticated")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    async def send_todo_update(self, event):
-        await self.send(text_data=json.dumps(event))
+    def test_task_detail(self):
+        task = Task.objects.create(title='Test Task', completed=False)
+        url = reverse('todo:task-detail', args=[task.pk])  # Updated URL pattern name
+        self.client.force_login(self.user)
+
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_task_update(self):
+        task = Task.objects.create(title='Test Task', completed=False)
+        url = reverse('todo:task-update', args=[task.pk])  # Updated URL pattern name
+        self.client.force_login(self.user)
+
+        data = {
+            'title': 'Updated Task',
+            'completed': True
+        }
+
+        response = self.client.put(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Task.objects.get(pk=task.pk).title, 'Updated Task')
+
+    def test_task_delete(self):
+        task = Task.objects.create(title='Test Task', completed=False)
+        url = reverse('todo:task-delete', args=[task.pk])  # Updated URL pattern name
+        self.client.force_login(self.user)
+
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Task.objects.filter(pk=task.pk).exists())
