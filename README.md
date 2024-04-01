@@ -76,4 +76,6 @@ curl --location 'http://localhost:8000/api/task-create/' \
     }'
 ```
 
+8. To test the websocket you can first run the apps and run the ws-test.html, then create todo using `/api/task-create/`, you will see someting changes in the ws-test.html
+
 
