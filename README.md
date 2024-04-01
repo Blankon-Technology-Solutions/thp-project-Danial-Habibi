@@ -51,9 +51,29 @@ curl --location 'http://localhost:8000/api/auth/login/' \
 ```
 The token from login can be use for Authentication Header
 
-5. To view list of Available API
+5. To view list of Available Task
 
 ```
 curl --location 'http://127.0.0.1:8000/api/task-list/' \
 --header 'Authorization: Token <Your_TOKEN>'
 ``` 
+6. To View list of Todo API 
+
+```
+curl --location 'http://127.0.0.1:8000/api/' \
+--header 'Authorization: Token <Your_Token>'
+```
+
+7. To Create Todo
+
+```
+curl --location 'http://localhost:8000/api/task-create/' \
+--header 'Authorization: Token <Your_TOKEN>' \
+--header 'Content-Type: application/json' \
+--data '{
+        "title": "New Task 5",
+        "completed": false
+    }'
+```
+
+
