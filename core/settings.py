@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "dj_rest_auth.registration",
     'todo.apps.TodoConfig',
      "allauth.socialaccount.providers.google",
+     'channels'
 ]
 
 MIDDLEWARE = [
@@ -163,3 +164,11 @@ SOCIALACCOUNT_PROVIDERS = {
 }
 
 REST_USE_JWT =True
+# ASGI_APPLICATION = 'todo.routing'
+WSGI_APPLICATION = 'core.wsgi.application'
+ASGI_APPLICATION = 'core.asgi.application'  # new
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',  # Use In-Memory channel layer for development
+    },
+}
