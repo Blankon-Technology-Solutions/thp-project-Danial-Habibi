@@ -148,8 +148,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
         "APP": {
-            "client_id": "645154316907-opr9ivmeg8to44oaaulqqhojrj5ntb16.apps.googleusercontent.com",  # replace me
-            "secret": "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",        # replace me
+            "client_id": "Client_ID",  # replace me
+            "secret": "Secret_key",        # replace me
             "key": "",                               # leave empty
         },
         "SCOPE": [
